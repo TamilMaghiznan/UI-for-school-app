@@ -1,5 +1,11 @@
 import pygame
 from pygame.locals import *
+import time
+import os
+import pytesseract
+from PIL import Image,ImageOps
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 pygame.init()
 
@@ -8,10 +14,13 @@ info=pygame.display.Info()
 winsize=(info.current_w,info.current_h)
 screen=pygame.display.set_mode(winsize)
 pygame.display.set_caption("School app...")
+screen.fill((30,30,30))#main_Background
 
 #Font for displaying text
 font=pygame.font.Font('Assets/font.ttf',17)
 font1=pygame.font.Font('Assets/font.ttf',35)
+font2=pygame.font.Font('Assets/font.ttf',20)
+font3=pygame.font.Font('Assets/font2.ttf',35)
 
 #Animations
 def option_state_animation_push():
@@ -96,12 +105,114 @@ news1=pygame.image.load('Assets/news_on.png')
 news_main1=pygame.transform.smoothscale(news1,news_newsize)
 news_xy=news_main.get_rect(center=button_recte.center)
 
+class school_op:
+    def __init__(self,image_path_off,image_path_on):
+        self.image=pygame.image.load(image_path_off)
+        image_size=self.image.get_size()
+        image_newsize=(image_size[0]//20,image_size[1]//20)
+        self.main_image=pygame.transform.smoothscale(self.image,image_newsize)
+        self.image1=pygame.image.load(image_path_on)
+        self.main_image1=pygame.transform.smoothscale(self.image1,image_newsize)
+
+    def draw(self,surface,x,y,state):
+        if state=='on':
+          surface.blit(self.main_image1,(x,y-3))
+        else: surface.blit(self.main_image,(x,y))
+
+images=[
+    school_op('Assets/home_off.png','Assets/home_on.png'),
+    school_op('Assets/doc_off.png','Assets/doc_on.png'),
+    school_op('Assets/att_off.png','Assets/att_on.png'),
+    school_op('Assets/pro_off.png','Assets/pro_on.png'),
+    school_op('Assets/exam_off.png','Assets/exam_on.png'),
+    school_op('Assets/class_off.png','Assets/class_on.png')
+]
+
+profile=pygame.image.load('Assets/profile.png')
+profile_size=news.get_size()
+profile_newsize=(news_size[0]//3.3,news_size[1]//3.3)
+profile_main=pygame.transform.smoothscale(profile,profile_newsize)
+
+class school_bot2:
+    def __init__(self,image_path_off,image_path_on):
+        self.image=pygame.image.load(image_path_off)
+        image_size=self.image.get_size()
+        image_newsize=(image_size[0]//20,image_size[1]//20)
+        self.main_image=pygame.transform.smoothscale(self.image,image_newsize)
+        self.image1=pygame.image.load(image_path_on)
+        self.main_image1=pygame.transform.smoothscale(self.image1,image_newsize)
+
+    def draw(self,surface,x,y,state):
+        if state=='on':
+          surface.blit(self.main_image1,(x,y-3))
+        else: surface.blit(self.main_image,(x,y))
+
+images_bot2=[
+    school_bot2('Assets/paint_off.png','Assets/paint_on.png'),
+    school_bot2('Assets/era_off.png','Assets/era_on.png')
+]
+
+solve=pygame.image.load("Assets/solve_off.png")
+solve_size=solve.get_size()
+solve_newsize=(solve_size[0]//8.5,solve_size[1]//8.5)
+main_solve=pygame.transform.smoothscale(solve,solve_newsize)
+solve1=pygame.image.load("Assets/solve_on.png")
+main_solve1=pygame.transform.smoothscale(solve1,solve_newsize)
+
+#For cv
+cv_colour=(255,255,255)
+def draw_line(screen,start,end,width):
+    pygame.draw.line(screen,cv_colour,start,end,width)
+
+def save_image():
+    timestamp=int(time.time())
+    filename=f"saved_image/cv_image.png"
+    pygame.image.save(sub_surface,filename)
+    return filename
+
+def recognize_text(image_path):
+    try:
+        image = Image.open(image_path)
+        recognized_text = pytesseract.image_to_string(image, lang='eng')
+        return recognized_text.strip()
+    except Exception as e:
+        print(f"Error recognizing text: {e}")
+        return ""
+    
+def evaluate_expression(recognized_text):
+    # Check if the recognized text is empty or not a valid expression
+    if not recognized_text:
+        print("Error: No text recognized for evaluation.")
+        return
+
+    try:
+        # Evaluate the expression only if it looks valid
+        result = eval(recognized_text)
+        print(f"Solved result: {result}")
+    except SyntaxError as e:
+        print(f"Error in evaluation: {e}")
+    except Exception as e:
+        print(f"Error in evaluation: {e}")
+
 #Colours for button
 coloura=(70,70,70)
 colourb=(70,70,70)
 colourc=(70,70,70)
 colourd=(70,70,70)
 coloure=(70,70,70)
+
+colour1=(140,140,140)
+colour2=(140,140,140)
+colour3=(140,140,140)
+colour4=(140,140,140)
+colour5=(140,140,140)
+colour6=(140,140,140)
+
+solve_colour=(70,70,70)
+solve_border_colour=(140,140,140)
+solve_text_colour=(140,140,140)
+box_colour=(50,50,50)
+box_outter_colour=(140,140,140)
 
 #Variables
 search_icon_state=0
@@ -118,6 +229,20 @@ sss=1
 aiss=pss=gss=nss=0
 squarey=32
 text="School"
+text_school="home_w"
+state1=state2=state3=state4='off'
+state5=state6='off'
+state13=state23=state33=state43='off'
+state53=state63='off'
+school_store_xy1=school_store_xy2=school_store_xy3=(0,0)
+school_store_xy4=school_store_xy5=school_store_xy6=(0,0)
+h=1
+c=a=p=e=s=0
+tem_x=0
+solve_on=False
+drawing=False
+last_pos=None
+radius=3
 
 run=True
 while run:
@@ -215,16 +340,208 @@ while run:
         option_state_animation_pull()
 
     #Background
-    screen.fill((30,30,30))#main_Background
     top_rect=pygame.draw.rect(screen,(70,70,70),[0,0,winsize[0],30])#Top bar/menu bar
-    left2_rect=pygame.draw.rect(screen,(45,45,45),[left_rect_state+10,32,left2_rect_state+left_rect_state,winsize[1]])#option bar pair
+    left2_rect=pygame.draw.rect(screen,(45,45,45),[left_rect_state,32,left2_rect_state,winsize[1]])#option bar pair
     left_rect=pygame.draw.rect(screen,(70,70,70),[0,32,left_rect_state,winsize[1]])#left bar/menu bar
     square=pygame.draw.rect(screen,(45,45,45),[50,squarey,left_rect_state,50])
 
     #Option in options
     if text=="School":
-        None
+        school_y=252
 
+        cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,32,winsize[0],winsize[1]])
+
+        s1=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*0-2.5,left2_rect_state,30],0,7)
+        images[0].draw(screen,left_rect_state+7,school_y+60*0,state1)
+        s2=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*1-2.5,left2_rect_state,30],0,7)
+        images[1].draw(screen,left_rect_state+7,school_y+60*1,state2)
+        s3=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*2-2.5,left2_rect_state,30],0,7)
+        images[2].draw(screen,left_rect_state+7,school_y+60*2,state3)
+        s4=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*3-2.5,left2_rect_state,30],0,7)
+        images[3].draw(screen,left_rect_state+7,school_y+60*3,state4)
+        s5=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*4-2.5,left2_rect_state,30],0,7)
+        images[4].draw(screen,left_rect_state+7,school_y+60*4,state5)
+        s6=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*5-2.5,left2_rect_state,30],0,7)
+        images[5].draw(screen,left_rect_state+7,school_y+60*5,state6)
+
+        school_store_text1=font2.render("Home Work",True,colour1)
+        school_store_xy1=school_store_text1.get_rect(center=left2_rect.center)
+        screen.blit(school_store_text1,(left_rect_state+15+19,school_y+60*0))
+        school_store_text2=font2.render("Circular",True,colour2)
+        school_store_xy2=school_store_text2.get_rect(center=left2_rect.center)
+        screen.blit(school_store_text2,(left_rect_state+15+19,school_y+60*1))
+        school_store_text3=font2.render("Attendance",True,colour3)
+        school_store_xy3=school_store_text3.get_rect(center=left2_rect.center)
+        screen.blit(school_store_text3,(left_rect_state+15+19,school_y+60*2))
+        school_store_text4=font2.render("Progress Card",True,colour4)
+        school_store_xy4=school_store_text4.get_rect(center=left2_rect.center)
+        screen.blit(school_store_text4,(left_rect_state+15+19,school_y+60*3))
+        school_store_text5=font2.render("Exam Planner",True,colour5)
+        school_store_xy5=school_store_text5.get_rect(center=left2_rect.center)
+        screen.blit(school_store_text5,(left_rect_state+15+19,school_y+60*4))
+        school_store_text6=font2.render("Special Class",True,colour6)
+        school_store_xy6=school_store_text6.get_rect(center=left2_rect.center)
+        screen.blit(school_store_text6,(left_rect_state+15+19,school_y+60*5))
+
+        bar=pygame.draw.rect(screen,(30,30,30),[left2_rect_state+left_rect_state-7,school_y+60*tem_x-7.5,7,30+7.5],0,-1,3,-1,3,-1)
+        screen.blit(profile_main,(left_rect_state+10,32+30))
+
+        if event.type==pygame.MOUSEBUTTONDOWN:
+            if s1.collidepoint(event.pos):
+                  h=1
+                  c=a=p=e=s=0
+                  tem_x=0
+            if s2.collidepoint(event.pos):
+                  c=1
+                  h=a=p=e=s=0
+                  tem_x=1
+            if s3.collidepoint(event.pos):
+                  a=1
+                  h=c=p=e=s=0
+                  tem_x=2
+            if s4.collidepoint(event.pos):
+                  p=1
+                  h=a=c=e=s=0
+                  tem_x=3
+            if s5.collidepoint(event.pos):
+                  e=1
+                  h=a=p=c=s=0
+                  tem_x=4
+            if s6.collidepoint(event.pos):
+                  s=1
+                  h=a=p=e=c=0
+                  tem_x=5
+
+        if h==1:
+            state1='on'
+            colour1=(255,255,255)
+        else:
+            state1='off'
+            colour1=(140,140,140)
+        if c==1:
+            state2='on'
+            colour2=(255,255,255)
+        else:
+            state2='off'
+            colour2=(140,140,140)
+        if a==1:
+            state3='on'
+            colour3=(255,255,255)
+        else:
+            state3='off'
+            colour3=(140,140,140)
+        if p==1:
+            state4='on'
+            colour4=(255,255,255)
+        else:
+            state4='off'
+            colour4=(140,140,140)
+        if e==1:
+            state5='on'
+            colour5=(255,255,255)
+        else:
+            state5='off'
+            colour5=(140,140,140)
+        if s==1:
+            state6='on'
+            colour6=(255,255,255)
+        else:
+            state6='off'
+            colour6=(140,140,140)
+
+        if event.type==pygame.MOUSEMOTION:
+            if s1.collidepoint(event.pos):
+                 state1='on'
+                 colour1=(255,255,255)
+            elif h==0:
+                state1='off'
+                colour1=(140,140,140)
+            if s2.collidepoint(event.pos):
+                 state2='on'
+                 colour2=(255,255,255)
+            elif c==0:
+                state2='off'
+                colour2=(140,140,140)
+            if s3.collidepoint(event.pos):
+                 state3='on'
+                 colour3=(255,255,255)
+            elif a==0:
+                state3='off'
+                colour3=(140,140,140)
+            if s4.collidepoint(event.pos):
+                 state4='on'
+                 colour4=(255,255,255)
+            elif p==0:
+                state4='off'
+                colour4=(140,140,140)
+            if s5.collidepoint(event.pos):
+                 state5='on'
+                 colour5=(255,255,255)
+            elif e==0:
+                state5='off'
+                colour5=(140,140,140)
+            if s6.collidepoint(event.pos):
+                 state6='on'
+                 colour6=(255,255,255)
+            elif s==0:
+                state6='off'
+                colour6=(140,140,140)
+    if text=="Bot2":
+        cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,32,10,winsize[1]])
+
+        box=pygame.Rect(300,32+10,winsize[0]-200-105,winsize[1]-52)
+        box_outter=pygame.draw.rect(screen,box_outter_colour,box,2,10)
+
+        solve=pygame.draw.rect(screen,solve_colour,[left_rect_state+10,32+10,left2_rect_state-20,left2_rect_state-42],0,10)
+        solve_border=pygame.draw.rect(screen,solve_border_colour,[left_rect_state+10,32+10,left2_rect_state-20,left2_rect_state-42],1,10)
+        solve_text=font3.render("Solve",True,solve_text_colour)
+        solve_text_xy=solve_text.get_rect(center=solve.center)
+        screen.blit(solve_text,(solve_text_xy[0],solve_text_xy[1]-30))
+        if solve_on:
+           screen.blit(main_solve1,(solve_text_xy[0]+18,solve_text_xy[1]+15))
+        else:
+           screen.blit(main_solve,(solve_text_xy[0]+18,solve_text_xy[1]+15))
+
+        if event.type==pygame.MOUSEBUTTONDOWN:
+                if box.collidepoint(event.pos):
+                    drawing=True
+                    last_pos=event.pos 
+        elif event.type==pygame.MOUSEBUTTONUP:
+                    drawing=False
+        elif event.type==pygame.MOUSEMOTION and drawing:
+                    current_pos=pygame.mouse.get_pos()
+                    if box.collidepoint(current_pos):
+                      if last_pos and box.collidepoint(last_pos):
+                       pygame.draw.line(screen,cv_colour,last_pos,current_pos,radius)
+                      last_pos=current_pos
+
+        if event.type==pygame.MOUSEMOTION:
+            if solve.collidepoint(event.pos):
+                solve_text_colour=(255,255,255)
+                solve_border_colour=(255,255,255)
+                solve_on=True
+            else:
+                solve_text_colour=(140,140,140)
+                solve_border_colour=(140,140,140)
+                solve_on=False
+
+        if event.type==pygame.MOUSEBUTTONUP:
+            if solve.collidepoint(event.pos):
+                sub_surface=screen.subsurface(box)
+                filename=save_image()
+                time.sleep(0.1)
+                if os.path.exists(filename):
+                    try:
+                      # Recognize text using Tesseract
+                      recognized_text = recognize_text(filename)
+                      print(f"Recognized text: {recognized_text}")
+
+                      # Evaluate the expression
+                      evaluate_expression(recognized_text)
+                    except Exception as e:
+                      print(f"Error processing the image: {e}")
+                else:
+                  print(f"File {filename} does not exist.")
     #Change button colour
     if sss==1:
         coloura=(45,45,45)
@@ -331,6 +648,6 @@ while run:
         screen.blit(news_main,(news_xy[0],news_xy[1]+5))
     elif news_state==1 or ns==1:
         screen.blit(news_main1,(news_xy[0],news_xy[1]))
-
+    
     pygame.display.update()
 pygame.quit()
