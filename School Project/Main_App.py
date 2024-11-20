@@ -1,11 +1,8 @@
 import pygame
 from pygame.locals import *
 import time
+import json
 import os
-import pytesseract
-from PIL import Image,ImageOps
-
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 pygame.init()
 
@@ -21,6 +18,8 @@ font=pygame.font.Font('Assets/font.ttf',17)
 font1=pygame.font.Font('Assets/font.ttf',35)
 font2=pygame.font.Font('Assets/font.ttf',20)
 font3=pygame.font.Font('Assets/font2.ttf',35)
+font4=pygame.font.Font('Assets/font2.ttf',25)
+font5=pygame.font.Font('Assets/font2.ttf',40)
 
 #Animations
 def option_state_animation_push():
@@ -65,6 +64,12 @@ button_rectc=pygame.Rect(0,132,50,50)
 button_rectd=pygame.Rect(0,182,50,50)
 button_recte=pygame.Rect(0,237,50,50)
 
+#Buttons for login
+button_rect_name=pygame.Rect(winsize[0]/2-132,winsize[1]/2-62,265,27)
+button_rect_password=pygame.Rect(winsize[0]/2-133,winsize[1]/2+8,265,27)
+login_button=pygame.Rect(winsize[0]/2-131.5,winsize[1]/2+93,220,70)
+
+#Images
 school=pygame.image.load('Assets/school_off.png')
 school_size=school.get_size()
 school_newsize=(school_size[0]//15,school_size[1]//15)
@@ -167,32 +172,61 @@ def draw_line(screen,start,end,width):
 def save_image():
     timestamp=int(time.time())
     filename=f"saved_image/cv_image.png"
-    pygame.image.save(sub_surface,filename)
+    pygame.image.save(subsurface,filename)
     return filename
 
-def recognize_text(image_path):
-    try:
-        image = Image.open(image_path)
-        recognized_text = pytesseract.image_to_string(image, lang='eng')
-        return recognized_text.strip()
-    except Exception as e:
-        print(f"Error recognizing text: {e}")
-        return ""
-    
-def evaluate_expression(recognized_text):
-    # Check if the recognized text is empty or not a valid expression
-    if not recognized_text:
-        print("Error: No text recognized for evaluation.")
-        return
+#Json
+def check_login(username, password):
+ 
+    with open('Database/login.json', 'r') as file:
+        users_data = json.load(file)
 
+    for user in users_data["login"]:
+        if user["name"] == username and user["password"] == password:
+            print("Yes")
+            return
+
+    print("Incorrect password")
+
+#For login
+def load_users():
     try:
-        # Evaluate the expression only if it looks valid
-        result = eval(recognized_text)
-        print(f"Solved result: {result}")
-    except SyntaxError as e:
-        print(f"Error in evaluation: {e}")
-    except Exception as e:
-        print(f"Error in evaluation: {e}")
+        with open('Database/login.json', 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return {"users": []}
+    
+def check_login(username_input, password_input):
+    users_data = load_users()
+    for user in users_data["login"]:
+        if user["name"] == username_input and user["password"] == password_input:
+            return True
+    return False
+
+login=pygame.image.load("Assets/login.png")
+login_size=login.get_size()
+login_newsize=(login_size[0]//2.25,login_size[1]//2.15)
+main_login=pygame.transform.smoothscale(login,login_newsize)
+
+#For homework=====================================================================================================
+JSON_FILE = "Database/homework_data.json"
+if os.path.exists(JSON_FILE):
+    with open(JSON_FILE, "r") as file:
+        homework_data = json.load(file)
+else:
+    homework_data = {"homeworks": []}
+
+def save_homework_data():
+    with open(JSON_FILE, "w") as file:
+        json.dump(homework_data, file, indent=4)
+
+def draw_text(surface, text, position, color=(255,255,255)):
+    text_surface = font.render(text, True, color)
+    rect_text=text_surface.get_rect()
+    pygame.draw.rect(screen,(70,70,70),(position[0]-5,position[1]-5,winsize[0]-270,rect_text[3]+10),0,7)
+    pygame.draw.rect(screen,(150,150,150),(position[0]-5,position[1]-5,winsize[0]-270,rect_text[3]+10),1,7)
+    surface.blit(text_surface, position)
+    
 
 #Colours for button
 coloura=(70,70,70)
@@ -213,6 +247,10 @@ solve_border_colour=(140,140,140)
 solve_text_colour=(140,140,140)
 box_colour=(50,50,50)
 box_outter_colour=(140,140,140)
+
+login_name_colour=(150,150,150)
+login_password_colour=(150,150,150)
+login_colour=(80,80,80)
 
 #Variables
 search_icon_state=0
@@ -238,15 +276,144 @@ school_store_xy1=school_store_xy2=school_store_xy3=(0,0)
 school_store_xy4=school_store_xy5=school_store_xy6=(0,0)
 h=1
 c=a=p=e=s=0
-tem_x=0
+tem_x,x=0,0
 solve_on=False
 drawing=False
 last_pos=None
 radius=3
+username = ""
+password = ""
+username_active = False
+password_active = False
+dis_name=False
+dis_pass=False
+i_pass=False
 
+login_run=False
 run=True
 while run:
-    for event in pygame.event.get():
+    if login_run:
+      for event in pygame.event.get():
+
+        if event.type==pygame.QUIT:
+            run=False
+
+        if event.type==pygame.KEYDOWN:
+           if event.key==pygame.K_ESCAPE:
+              run=False
+
+        if event.type==pygame.MOUSEBUTTONDOWN:
+            if button_rect2.collidepoint(event.pos):
+                run=False
+            if button_rect3.collidepoint(event.pos):
+                pygame.display.iconify()
+
+        if event.type==pygame.MOUSEMOTION:
+            if button_rect2.collidepoint(event.pos):
+                close_text_colour=(255,255,255)
+            else:
+                close_text_colour=(150,150,150)
+            if button_rect3.collidepoint(event.pos):
+                _text_colour=(255,255,255)
+            else:
+                _text_colour=(150,150,150)
+
+            if button_rect_name.collidepoint(event.pos):
+                login_name_colour=(255,255,255)
+            else:
+                login_name_colour=(150,150,150)
+            if button_rect_password.collidepoint(event.pos):
+                login_password_colour=(255,255,255)
+            else:
+                login_password_colour=(150,150,150)
+            if login_button.collidepoint(event.pos):
+                x=-3
+                login_colour=(255,255,255)
+            else:
+                login_colour=(150,150,150)
+                x=0
+
+        if event.type == pygame.KEYDOWN:
+            if username_active:
+                i_pass=False
+                if event.key == pygame.K_BACKSPACE:
+                    username = username[:-1]
+                else:
+                    username += event.unicode
+            elif password_active:
+                i_pass=False
+                if event.key == pygame.K_BACKSPACE:
+                    password = password[:-1]
+                else:
+                    password += event.unicode
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if button_rect_name.collidepoint(event.pos):
+                dis_name=True
+                username_active = True
+                password_active = False
+            elif button_rect_password.collidepoint(event.pos):
+                dis_pass=True
+                password_active = True
+                username_active = False
+            else:
+                username_active = False
+                password_active = False
+
+      screen.fill((60,60,60))
+
+      #Close and - button
+      close_text=font.render("X",True,close_text_colour)
+      close_text_xy=close_text.get_rect(center=button_rect2.center)
+      screen.blit(close_text,close_text_xy)
+      _text=font1.render("-",True,_text_colour)
+      _text_xy=_text.get_rect(center=button_rect3.center)
+      screen.blit(_text,(_text_xy[0],_text_xy[1]-1))
+
+      #Main login
+      loginx=winsize[0]/2-login_newsize[0]/1.825
+      loginy=winsize[1]/2-login_newsize[1]/2
+      screen.blit(main_login,(loginx,loginy))
+
+      #Render Text 
+      name_text=font4.render("Name",True,login_name_colour)
+      name_text_xy=name_text.get_rect(center=button_rect_name.center)
+      screen.blit(name_text,(name_text_xy[0]-95,name_text_xy[1]))
+
+      pass_text=font4.render("Password",True,login_password_colour)
+      pass_text_xy=pass_text.get_rect(center=button_rect_password.center)
+      screen.blit(pass_text,(pass_text_xy[0]-70,pass_text_xy[1]))
+
+      match_colour=(58,58,58)
+      if dis_name:
+          pygame.draw.rect(screen,match_colour,button_rect_name)
+      if dis_pass:
+          pygame.draw.rect(screen,match_colour,button_rect_password)
+
+      username_text = font4.render(username, True, (255,255,255))
+      password_text = font4.render("*" * len(password), True, (255,255,255))
+      screen.blit(username_text, (name_text_xy[0]-95,name_text_xy[1]))
+      screen.blit(password_text, (pass_text_xy[0]-70,pass_text_xy[1]))
+
+      login_text = font5.render("login", True, login_colour)
+      login_text_xy=login_text.get_rect(center=login_button.center)
+      screen.blit(login_text,(login_text_xy[0],login_text_xy[1]+x))
+
+      if login_button.collidepoint(pygame.mouse.get_pos()) and pygame.mouse.get_pressed()[0]:
+        if check_login(username, password):
+            login_run=False
+            password = ""
+        else:
+            i_pass=True
+
+      if i_pass:
+            text1 = font2.render("Incorrect Password/User Name", True, (255,0,0))
+            screen.blit(text1,(winsize[0]/2-155,winsize[1]/2-270))
+
+      pygame.display.update()
+
+    else:
+      for event in pygame.event.get():
 
         if event.type==pygame.QUIT:
             run=False
@@ -333,20 +500,20 @@ while run:
               else:
                   news_state=0
 
-    #Animation
-    if option_state==0 and left_rect_state<=100:
+      #Animation
+      if option_state==0 and left_rect_state<=100:
         option_state_animation_push()
-    elif option_state==1 and left_rect_state>=55:
+      elif option_state==1 and left_rect_state>=55:
         option_state_animation_pull()
 
     #Background
-    top_rect=pygame.draw.rect(screen,(70,70,70),[0,0,winsize[0],30])#Top bar/menu bar
-    left2_rect=pygame.draw.rect(screen,(45,45,45),[left_rect_state,32,left2_rect_state,winsize[1]])#option bar pair
-    left_rect=pygame.draw.rect(screen,(70,70,70),[0,32,left_rect_state,winsize[1]])#left bar/menu bar
-    square=pygame.draw.rect(screen,(45,45,45),[50,squarey,left_rect_state,50])
+      top_rect=pygame.draw.rect(screen,(70,70,70),[0,0,winsize[0],30])#Top bar/menu bar
+      left2_rect=pygame.draw.rect(screen,(45,45,45),[left_rect_state,32,left2_rect_state,winsize[1]])#option bar pair
+      left_rect=pygame.draw.rect(screen,(70,70,70),[0,32,left_rect_state,winsize[1]])#left bar/menu bar
+      square=pygame.draw.rect(screen,(45,45,45),[50,squarey,left_rect_state,50])
 
-    #Option in options
-    if text=="School":
+      #Option in options
+      if text=="School":
         school_y=252
 
         cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,32,winsize[0],winsize[1]])
@@ -486,19 +653,30 @@ while run:
             elif s==0:
                 state6='off'
                 colour6=(140,140,140)
-    if text=="Bot2":
+
+        #homework======================================================================================================================
+        y_offset=0
+        for i, hw in enumerate(homework_data["homeworks"]):
+            y_offset += 50
+            draw_text(screen, f"{i + 1}. {hw}", (250+5, y_offset+5))
+
+      if text=="Bot2":
         cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,32,10,winsize[1]])
 
         box=pygame.Rect(300,32+10,winsize[0]-200-105,winsize[1]-52)
         box_outter=pygame.draw.rect(screen,box_outter_colour,box,2,10)
+
+        subsurface = screen.subsurface(box)
 
         solve=pygame.draw.rect(screen,solve_colour,[left_rect_state+10,32+10,left2_rect_state-20,left2_rect_state-42],0,10)
         solve_border=pygame.draw.rect(screen,solve_border_colour,[left_rect_state+10,32+10,left2_rect_state-20,left2_rect_state-42],1,10)
         solve_text=font3.render("Solve",True,solve_text_colour)
         solve_text_xy=solve_text.get_rect(center=solve.center)
         screen.blit(solve_text,(solve_text_xy[0],solve_text_xy[1]-30))
+
         if solve_on:
            screen.blit(main_solve1,(solve_text_xy[0]+18,solve_text_xy[1]+15))
+           save_image()
         else:
            screen.blit(main_solve,(solve_text_xy[0]+18,solve_text_xy[1]+15))
 
@@ -527,127 +705,115 @@ while run:
 
         if event.type==pygame.MOUSEBUTTONUP:
             if solve.collidepoint(event.pos):
-                sub_surface=screen.subsurface(box)
-                filename=save_image()
-                time.sleep(0.1)
-                if os.path.exists(filename):
-                    try:
-                      # Recognize text using Tesseract
-                      recognized_text = recognize_text(filename)
-                      print(f"Recognized text: {recognized_text}")
+                #solve 
+                None
 
-                      # Evaluate the expression
-                      evaluate_expression(recognized_text)
-                    except Exception as e:
-                      print(f"Error processing the image: {e}")
-                else:
-                  print(f"File {filename} does not exist.")
     #Change button colour
-    if sss==1:
+      if sss==1:
         coloura=(45,45,45)
         ss=1
         squarey=32
         text="School"
-    elif sss==0:
+      elif sss==0:
         coloura=(70,70,70)
         ss=0
-    if aiss==1:
+      if aiss==1:
         colourb=(45,45,45)
         ais=1
         squarey=82
         text="Bot1"
-    elif aiss==0:
+      elif aiss==0:
         colourb=(70,70,70)
         ais=0
-    if pss==1:
+      if pss==1:
         ps=1
         colourc=(45,45,45)
         squarey=132
         text="Bot2"
-    elif pss==0:
+      elif pss==0:
         ps=0
         colourc=(70,70,70)
-    if gss==1:
+      if gss==1:
         gs=1
         colourd=(45,45,45)
         squarey=182
         text="Games"
-    elif gss==0:
+      elif gss==0:
         gs=0
         colourd=(70,70,70)
-    if nss==1:
+      if nss==1:
         ns=1
         coloure=(45,45,45)
         squarey=237
         text="News"
-    elif nss==0:
+      elif nss==0:
         ns=0
         coloure=(70,70,70)
-    #Buttons for options
-    pygame.draw.rect(screen,coloura,button_recta,0,-1,10,-1,10,-1)
-    pygame.draw.rect(screen,colourb,button_rectb,0,-1,10,-1,10,-1)
-    pygame.draw.rect(screen,colourc,button_rectc,0,-1,10,-1,10,-1)
-    pygame.draw.rect(screen,colourd,button_rectd,0,-1,10,-1,10,-1)
-    pygame.draw.rect(screen,coloure,button_recte,0,-1,10,-1,10,-1)
+      #Buttons for options
+      pygame.draw.rect(screen,coloura,button_recta,0,-1,10,-1,10,-1)
+      pygame.draw.rect(screen,colourb,button_rectb,0,-1,10,-1,10,-1)
+      pygame.draw.rect(screen,colourc,button_rectc,0,-1,10,-1,10,-1)
+      pygame.draw.rect(screen,colourd,button_rectd,0,-1,10,-1,10,-1)
+      pygame.draw.rect(screen,coloure,button_recte,0,-1,10,-1,10,-1)
 
-    #Text for options
-    option_text=font.render(text,True,(255,255,255))
-    if left_rect_state>=100:
+      #Text for options
+      option_text=font.render(text,True,(255,255,255))
+      if left_rect_state>=100:
        screen.blit(option_text,(50,squarey+15))
 
-    #Search icon/search bar
-    search_bar=pygame.draw.rect(screen,search_bar_colour,[winsize[0]-370,4,300,22],0,7)
-    search_bar_border=pygame.draw.rect(screen,search_bar_border_colour,[winsize[0]-370,4,300,22],1,7)
-    search_bar_text=font.render("Search",True,search_bar_text_colour)
-    search_bar_text_xy=search_bar_text.get_rect(center=button_rect1.center)
-    screen.blit(search_bar_text,(search_bar_text_xy[0]+15,search_bar_text_xy[1]))
-    if search_icon_state==1:
-      screen.blit(search_icon_main1,(search_bar_text_xy[0]-5,search_bar_text_xy[1]+2))
-    else:
-      screen.blit(search_icon_main,(search_bar_text_xy[0]-5,search_bar_text_xy[1]+2))
+      #Search icon/search bar
+      search_bar=pygame.draw.rect(screen,search_bar_colour,[winsize[0]-370,4,300,22],0,7)
+      search_bar_border=pygame.draw.rect(screen,search_bar_border_colour,[winsize[0]-370,4,300,22],1,7)
+      search_bar_text=font.render("Search",True,search_bar_text_colour)
+      search_bar_text_xy=search_bar_text.get_rect(center=button_rect1.center)
+      screen.blit(search_bar_text,(search_bar_text_xy[0]+15,search_bar_text_xy[1]))
+      if search_icon_state==1:
+        screen.blit(search_icon_main1,(search_bar_text_xy[0]-5,search_bar_text_xy[1]+2))
+      else:
+        screen.blit(search_icon_main,(search_bar_text_xy[0]-5,search_bar_text_xy[1]+2))
 
-    #Close and - button
-    close_text=font.render("X",True,close_text_colour)
-    close_text_xy=close_text.get_rect(center=button_rect2.center)
-    screen.blit(close_text,close_text_xy)
-    _text=font1.render("-",True,_text_colour)
-    _text_xy=_text.get_rect(center=button_rect3.center)
-    screen.blit(_text,(_text_xy[0],_text_xy[1]-1))
+      #Close and - button
+      close_text=font.render("X",True,close_text_colour)
+      close_text_xy=close_text.get_rect(center=button_rect2.center)
+      screen.blit(close_text,close_text_xy)
+      _text=font1.render("-",True,_text_colour)
+      _text_xy=_text.get_rect(center=button_rect3.center)
+      screen.blit(_text,(_text_xy[0],_text_xy[1]-1))
 
-    #Option menu button
-    _text2=font1.render("_",True,_text2_colour)
-    _text2_xy=_text2.get_rect(center=button_rect4.center)
-    screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-10))
-    screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-15))
-    screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-20))
-    screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-25))
+      #Option menu button
+      _text2=font1.render("_",True,_text2_colour)
+      _text2_xy=_text2.get_rect(center=button_rect4.center)
+      screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-10))
+      screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-15))
+      screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-20))
+      screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-25))
     
-    #=========================================[For options]
-    #School
-    if school_state==0 and ss==0:
+      #=========================================[For options]
+      #School
+      if school_state==0 and ss==0:
        screen.blit(school_main,(school_xy[0],school_xy[1]+5))
-    elif school_state==1 or ss==1:
+      elif school_state==1 or ss==1:
        screen.blit(school_main1,school_xy)
-    #AI
-    if ai_state==0 and ais==0:
+      #AI
+      if ai_state==0 and ais==0:
         screen.blit(ai_main,(ai_xy[0],ai_xy[1]+5))
-    elif ai_state==1 or ais==1:
+      elif ai_state==1 or ais==1:
         screen.blit(ai_main1,ai_xy)
-    #Pen AI
-    if pen_state==0 and ps==0:
+      #Pen AI
+      if pen_state==0 and ps==0:
         screen.blit(pen_main,(pen_xy[0],pen_xy[1]+5))
-    elif pen_state==1 or ps==1:
+      elif pen_state==1 or ps==1:
         screen.blit(pen_main1,pen_xy)
-    #Games
-    if game_state==0 and gs==0:
+      #Games
+      if game_state==0 and gs==0:
         screen.blit(game_main,(game_xy[0],game_xy[1]+5))
-    elif game_state==1 or gs==1:
+      elif game_state==1 or gs==1:
         screen.blit(game_main1,game_xy)
-    #news
-    if news_state==0 and ns==0:
+      #news
+      if news_state==0 and ns==0:
         screen.blit(news_main,(news_xy[0],news_xy[1]+5))
-    elif news_state==1 or ns==1:
+      elif news_state==1 or ns==1:
         screen.blit(news_main1,(news_xy[0],news_xy[1]))
     
-    pygame.display.update()
+      pygame.display.update()
 pygame.quit()
