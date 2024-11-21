@@ -220,13 +220,21 @@ def save_homework_data():
     with open(JSON_FILE, "w") as file:
         json.dump(homework_data, file, indent=4)
 
-def draw_text(surface, text, position, color=(255,255,255)):
-    text_surface = font.render(text, True, color)
-    rect_text=text_surface.get_rect()
-    pygame.draw.rect(screen,(70,70,70),(position[0]-5,position[1]-5,winsize[0]-270,rect_text[3]+10),0,7)
-    pygame.draw.rect(screen,(150,150,150),(position[0]-5,position[1]-5,winsize[0]-270,rect_text[3]+10),1,7)
-    surface.blit(text_surface, position)
-    
+def draw_multiline_text_with_rect(surface, text, start_pos, line_height, text_color=(255,255,255), rect_color=(70,70,70), padding=10):
+    lines = text.split('\n')
+    x, y = start_pos
+
+    rect_height = (line_height * len(lines)) + padding * 2
+    rect = pygame.Rect(x - padding, y - padding, winsize[0]-255, rect_height)
+
+    pygame.draw.rect(surface,rect_color,rect,0,15)
+    pygame.draw.rect(surface,(120,120,120),rect,2,15)
+
+    for line in lines:
+        text_surface = font2.render(line, True, text_color)
+        surface.blit(text_surface, (x, y))
+        y += line_height  
+    return rect_height + padding
 
 #Colours for button
 coloura=(70,70,70)
@@ -288,6 +296,7 @@ password_active = False
 dis_name=False
 dis_pass=False
 i_pass=False
+FONT_SIZE=20
 
 login_run=False
 run=True
@@ -655,10 +664,14 @@ while run:
                 colour6=(140,140,140)
 
         #homework======================================================================================================================
-        y_offset=0
-        for i, hw in enumerate(homework_data["homeworks"]):
-            y_offset += 50
-            draw_text(screen, f"{i + 1}. {hw}", (250+5, y_offset+5))
+        if h==1:
+          y_offset = 20
+          y_offset += FONT_SIZE + 20
+
+          for hw in homework_data["homeworks"]:
+            rect_height = draw_multiline_text_with_rect(screen, hw, (255, y_offset),FONT_SIZE + 5)
+            y_offset += rect_height + 10
+
 
       if text=="Bot2":
         cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,32,10,winsize[1]])
