@@ -3,6 +3,7 @@ from pygame.locals import *
 import time
 import json
 import os
+import math
 
 pygame.init()
 
@@ -15,6 +16,7 @@ screen.fill((30,30,30))#main_Background
 
 #Font for displaying text
 font=pygame.font.Font('Assets/font.ttf',17)
+font6=pygame.font.Font('Assets/font2.ttf',17)
 font1=pygame.font.Font('Assets/font.ttf',35)
 font2=pygame.font.Font('Assets/font.ttf',20)
 font3=pygame.font.Font('Assets/font2.ttf',35)
@@ -68,6 +70,12 @@ button_recte=pygame.Rect(0,237,50,50)
 button_rect_name=pygame.Rect(winsize[0]/2-132,winsize[1]/2-62,265,27)
 button_rect_password=pygame.Rect(winsize[0]/2-133,winsize[1]/2+8,265,27)
 login_button=pygame.Rect(winsize[0]/2-131.5,winsize[1]/2+93,220,70)
+
+#Buttons for homework
+text_add_rect=[winsize[0]-150,40,120,50]
+text_add_rect1=[winsize[0]//2+230,winsize[0]//2+100,120,50]
+text_rect=pygame.Rect(winsize[0]-150,40,120,50)
+text_rect1=pygame.Rect(winsize[0]//2+230,winsize[0]//2+100,120,50)
 
 #Images
 school=pygame.image.load('Assets/school_off.png')
@@ -126,7 +134,7 @@ class school_op:
 
 images=[
     school_op('Assets/home_off.png','Assets/home_on.png'),
-    school_op('Assets/doc_off.png','Assets/doc_on.png'),
+    #school_op('Assets/doc_off.png','Assets/doc_on.png'),
     school_op('Assets/att_off.png','Assets/att_on.png'),
     school_op('Assets/pro_off.png','Assets/pro_on.png'),
     school_op('Assets/exam_off.png','Assets/exam_on.png'),
@@ -216,16 +224,33 @@ if os.path.exists(JSON_FILE):
 else:
     homework_data = {"homeworks": []}
 
-def save_homework_data():
-    with open(JSON_FILE, "w") as file:
-        json.dump(homework_data, file, indent=4)
+JSON_FILE1 = "Database/class.json"
+if os.path.exists(JSON_FILE1):
+    with open(JSON_FILE1, "r") as file:
+        class_data = json.load(file)
+
+JSON_FILE2 = "Database/news.json"
+if os.path.exists(JSON_FILE2):
+    with open(JSON_FILE2, "r") as file:
+        news_data = json.load(file)
+        
+add_text_1=""
+line_height1 = 20
+def render_text():
+    lines1 = add_text_1.split('\n')
+    rendered_lines = []
+
+    for line1 in lines1:
+        rendered_lines.append(font6.render(line1, True, (255,255,255)))
+
+    return rendered_lines
 
 def draw_multiline_text_with_rect(surface, text, start_pos, line_height, text_color=(255,255,255), rect_color=(70,70,70), padding=10):
     lines = text.split('\n')
     x, y = start_pos
 
     rect_height = (line_height * len(lines)) + padding * 2
-    rect = pygame.Rect(x - padding, y - padding, winsize[0]-255, rect_height)
+    rect = pygame.Rect(x - padding, y - padding, winsize[0]-200-left_rect_state, rect_height)
 
     pygame.draw.rect(surface,rect_color,rect,0,15)
     pygame.draw.rect(surface,(120,120,120),rect,2,15)
@@ -235,6 +260,143 @@ def draw_multiline_text_with_rect(surface, text, start_pos, line_height, text_co
         surface.blit(text_surface, (x, y))
         y += line_height  
     return rect_height + padding
+
+def save_homework_data():
+    with open(JSON_FILE, "w") as file:
+        json.dump(homework_data, file, indent=4)
+#next a
+ABSENT_COLOR = (90,90,90)  # Red
+PRESENT_COLOR = (50,50,50)  # Green
+HOVER_COLOR = (200, 200, 200)
+TOOLTIP_BG = (50, 50, 50)
+TOOLTIP_TEXT = (255, 255, 255)
+
+'''total_days = 30
+absent_days = 2
+present_days = total_days - absent_days'''
+
+def get_present_by_name(name):
+    global absent_angle,present_angle,absent_days,present_days,total_days
+    users_data = load_users()
+    for user in users_data["login"]:
+        if user["name"] == name:
+            day=user['present']
+    total_days = 30
+    present_days = day
+    absent_days = total_days-present_days
+    absent_angle = (absent_days / total_days) * 360
+    present_angle = (present_days / total_days) * 360
+    return absent_angle,present_angle,absent_days
+
+CENTER = (winsize[0]// 2+130,winsize[1]// 2-40)
+BASE_RADIUS = 150+50
+HOVER_RADIUS = 170+50
+
+def draw_segment(center, radius, start_angle, end_angle, color):
+    points = [center]
+    for angle in range(int(start_angle), int(end_angle) + 1):
+        x = center[0] + radius * math.cos(math.radians(angle))
+        y = center[1] + radius * math.sin(math.radians(angle))
+        points.append((x, y))
+    pygame.draw.polygon(screen, color, points)
+
+def draw_pie_chart(hovered_segment=None):
+    radius_absent = HOVER_RADIUS if hovered_segment == "absent" else BASE_RADIUS
+    radius_present = HOVER_RADIUS if hovered_segment == "present" else BASE_RADIUS
+
+    # Draw absent segment
+    draw_segment(CENTER, radius_absent, 0, absent_angle, ABSENT_COLOR)
+    # Draw present segment
+    draw_segment(CENTER, radius_present, absent_angle, absent_angle + present_angle, PRESENT_COLOR)
+
+def draw_labels():
+    # Absent label
+    absent_mid_angle = absent_angle / 2
+    absent_x = CENTER[0] + (BASE_RADIUS + 50) * math.cos(math.radians(absent_mid_angle))
+    absent_y = CENTER[1] + (BASE_RADIUS + 50) * math.sin(math.radians(absent_mid_angle))
+    label = font.render(f"Absent: {absent_days} ({(absent_days / total_days) * 100:.1f}%)", True, (255,255,255))
+    screen.blit(label, (absent_x - label.get_width() // 2, absent_y - label.get_height() // 2))
+
+    # Present label
+    present_mid_angle = absent_angle + (present_angle / 2)
+    present_x = CENTER[0] + (BASE_RADIUS + 50) * math.cos(math.radians(present_mid_angle))
+    present_y = CENTER[1] + (BASE_RADIUS + 50) * math.sin(math.radians(present_mid_angle))
+    label = font.render(f"Present: {present_days} ({(present_days / total_days) * 100:.1f}%)", True, (255,255,255))
+    screen.blit(label, (present_x - label.get_width() // 2, present_y - label.get_height() // 2))
+
+def draw_legend():
+    legend_x = CENTER[0] - 150
+    legend_y = CENTER[1] + BASE_RADIUS + 50
+    pygame.draw.rect(screen, (180,180,180), (legend_x, legend_y, 300, 80), border_radius=10)
+    pygame.draw.rect(screen, (0,0,0), (legend_x, legend_y, 300, 80), 2, border_radius=10)
+
+    # Legend labels
+    pygame.draw.rect(screen, ABSENT_COLOR, (legend_x + 10, legend_y + 10, 20, 20))
+    pygame.draw.rect(screen, PRESENT_COLOR, (legend_x + 10, legend_y + 50, 20, 20))
+    absent_text = font.render(f"Absent: {absent_days} days", True, (0,0,0))
+    present_text = font.render(f"Present: {present_days} days", True, (0,0,0))
+    screen.blit(absent_text, (legend_x + 40, legend_y + 10))
+    screen.blit(present_text, (legend_x + 40, legend_y + 50))
+
+def draw_tooltip(mouse_pos, text):
+    text_surface = font.render(text, True, TOOLTIP_TEXT)
+    text_width, text_height = text_surface.get_width(), text_surface.get_height()
+    pygame.draw.rect(screen, TOOLTIP_BG, (mouse_pos[0], mouse_pos[1], text_width + 10, text_height + 10), border_radius=5)
+    screen.blit(text_surface, (mouse_pos[0] + 5, mouse_pos[1] + 5))
+
+def check_hover(mouse_pos):
+    dx, dy = mouse_pos[0] - CENTER[0], mouse_pos[1] - CENTER[1]
+    distance = math.sqrt(dx**2 + dy**2)
+
+    if distance <= BASE_RADIUS:
+        angle = math.degrees(math.atan2(dy, dx))
+        angle = (angle + 360) % 360
+
+        if 0 <= angle < absent_angle:
+            return "absent"
+        elif absent_angle <= angle <= absent_angle + present_angle:
+            return "present"
+    return None
+
+#next p
+DARK_BG = (20, 20, 30)
+WHITE = (255, 255, 255)
+NEON_GREEN = (100,100,100)
+NEON_BLUE = (70,70,70)
+RED = (255, 69, 58)
+GRID_COLOR = (50, 50, 70)
+SHADOW = (10, 10, 15)
+
+subjects = ["Maths", "CS", "Physics", "Chemistry", "English"]
+#marks = [75, 90, 80, 85, 70] 
+one=True
+def get_marks(name):
+  global one,marks,current_bar_lengths
+  if one==True:
+    users_data = load_users()
+    for user in users_data["login"]:
+        if user["name"] == name:
+            marks=user['marks']
+            return marks
+    one=False
+
+max_mark = 100
+
+bar_width = 50
+gap = 30
+top_margin = 250
+left_margin = 500
+graph_width = 700
+graph_height = len(subjects) * (bar_width + gap) - gap
+
+animation_speed = 15  
+
+#next e
+test=pygame.image.load('Assets/test.png')
+test_size=test.get_size()
+test_cut=1.1
+test_newsize=(test_size[0]//test_cut,test_size[1]//test_cut)
+test_main=pygame.transform.smoothscale(test,test_newsize)
 
 #Colours for button
 coloura=(70,70,70)
@@ -259,6 +421,11 @@ box_outter_colour=(140,140,140)
 login_name_colour=(150,150,150)
 login_password_colour=(150,150,150)
 login_colour=(80,80,80)
+
+add_colour=(200,200,200)
+add_text_colour=(140,140,140)
+add_colour1=(200,200,200)
+add_text_colour1=(140,140,140)
 
 #Variables
 search_icon_state=0
@@ -297,6 +464,10 @@ dis_name=False
 dis_pass=False
 i_pass=False
 FONT_SIZE=20
+add_text_op=False
+two=True
+rect_y,rect_y1,rect_y2=0,0,0
+rect_speed=30
 
 login_run=False
 run=True
@@ -422,6 +593,7 @@ while run:
       pygame.display.update()
 
     else:
+      mouse_pos = pygame.mouse.get_pos()
       for event in pygame.event.get():
 
         if event.type==pygame.QUIT:
@@ -442,7 +614,28 @@ while run:
             elif button_rect4.collidepoint(event.pos) and option_state==1:
                 _text2_colour=(255,255,255)
                 option_state=0
-        
+            if text_rect.collidepoint(event.pos):
+                  add_text_op=True
+            if text_rect1.collidepoint(event.pos):
+                  add_text_op=False
+                  homework_data["homeworks"].append(add_text_1)
+                  save_homework_data()
+            if event.button == 5 and h==1:  # Scroll up
+                  rect_y -= rect_speed
+            elif event.button == 4 and h==1:  # Scroll down
+                  rect_y += rect_speed
+
+            if event.button == 5 and s==1:  # Scroll up
+                  rect_y1 -= rect_speed
+            elif event.button == 4 and s==1:  # Scroll down
+                  rect_y1 += rect_speed
+
+            if event.button == 5 and text=="News":  # Scroll up
+                  rect_y2 -= rect_speed
+            elif event.button == 4 and text=="News":  # Scroll down
+                  rect_y2 += rect_speed
+            
+            
         if event.type==pygame.MOUSEBUTTONDOWN:
             if button_recta.collidepoint(event.pos):
                   ss=1
@@ -508,7 +701,27 @@ while run:
                   news_state=1
               else:
                   news_state=0
-
+              if text_rect.collidepoint(event.pos):
+                  add_colour=(255,255,255)
+                  add_text_colour=(255,255,255)
+              else:
+                  add_colour=(200,200,200)
+                  add_text_colour=(140,140,140)
+              if text_rect1.collidepoint(event.pos):
+                  add_colour1=(255,255,255)
+                  add_text_colour1=(255,255,255)
+              else:
+                  add_colour1=(200,200,200)
+                  add_text_colour1=(140,140,140)
+        
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RETURN:
+                add_text_1 += '\n'
+            elif event.key == pygame.K_BACKSPACE:
+                add_text_1 = add_text_1[:-1]
+            else:
+                add_text_1 += event.unicode
+      
       #Animation
       if option_state==0 and left_rect_state<=100:
         option_state_animation_push()
@@ -516,7 +729,7 @@ while run:
         option_state_animation_pull()
 
     #Background
-      top_rect=pygame.draw.rect(screen,(70,70,70),[0,0,winsize[0],30])#Top bar/menu bar
+      #top_rect=pygame.draw.rect(screen,(70,70,70),[0,0,winsize[0],30])#Top bar/menu bar
       left2_rect=pygame.draw.rect(screen,(45,45,45),[left_rect_state,32,left2_rect_state,winsize[1]])#option bar pair
       left_rect=pygame.draw.rect(screen,(70,70,70),[0,32,left_rect_state,winsize[1]])#left bar/menu bar
       square=pygame.draw.rect(screen,(45,45,45),[50,squarey,left_rect_state,50])
@@ -525,39 +738,39 @@ while run:
       if text=="School":
         school_y=252
 
-        cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,32,winsize[0],winsize[1]])
+        cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,30,winsize[0],winsize[1]])
 
         s1=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*0-2.5,left2_rect_state,30],0,7)
         images[0].draw(screen,left_rect_state+7,school_y+60*0,state1)
-        s2=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*1-2.5,left2_rect_state,30],0,7)
-        images[1].draw(screen,left_rect_state+7,school_y+60*1,state2)
-        s3=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*2-2.5,left2_rect_state,30],0,7)
-        images[2].draw(screen,left_rect_state+7,school_y+60*2,state3)
-        s4=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*3-2.5,left2_rect_state,30],0,7)
-        images[3].draw(screen,left_rect_state+7,school_y+60*3,state4)
-        s5=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*4-2.5,left2_rect_state,30],0,7)
-        images[4].draw(screen,left_rect_state+7,school_y+60*4,state5)
-        s6=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*5-2.5,left2_rect_state,30],0,7)
-        images[5].draw(screen,left_rect_state+7,school_y+60*5,state6)
+        #s2=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*1-2.5,left2_rect_state,30],0,7)
+        #images[1].draw(screen,left_rect_state+7,school_y+60*1,state2)
+        s3=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*1-2.5,left2_rect_state,30],0,7)
+        images[1].draw(screen,left_rect_state+7,school_y+60*1,state3)
+        s4=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*2-2.5,left2_rect_state,30],0,7)
+        images[2].draw(screen,left_rect_state+7,school_y+60*2,state4)
+        s5=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*3-2.5,left2_rect_state,30],0,7)
+        images[3].draw(screen,left_rect_state+7,school_y+60*3,state5)
+        s6=pygame.draw.rect(screen,(45,45,45),[left_rect_state,school_y+60*4-2.5,left2_rect_state,30],0,7)
+        images[4].draw(screen,left_rect_state+7,school_y+60*4,state6)
 
         school_store_text1=font2.render("Home Work",True,colour1)
         school_store_xy1=school_store_text1.get_rect(center=left2_rect.center)
         screen.blit(school_store_text1,(left_rect_state+15+19,school_y+60*0))
-        school_store_text2=font2.render("Circular",True,colour2)
-        school_store_xy2=school_store_text2.get_rect(center=left2_rect.center)
-        screen.blit(school_store_text2,(left_rect_state+15+19,school_y+60*1))
+        #school_store_text2=font2.render("Circular",True,colour2)
+        #school_store_xy2=school_store_text2.get_rect(center=left2_rect.center)
+        #screen.blit(school_store_text2,(left_rect_state+15+19,school_y+60*1))
         school_store_text3=font2.render("Attendance",True,colour3)
         school_store_xy3=school_store_text3.get_rect(center=left2_rect.center)
-        screen.blit(school_store_text3,(left_rect_state+15+19,school_y+60*2))
+        screen.blit(school_store_text3,(left_rect_state+15+19,school_y+60*1))
         school_store_text4=font2.render("Progress Card",True,colour4)
         school_store_xy4=school_store_text4.get_rect(center=left2_rect.center)
-        screen.blit(school_store_text4,(left_rect_state+15+19,school_y+60*3))
+        screen.blit(school_store_text4,(left_rect_state+15+19,school_y+60*2))
         school_store_text5=font2.render("Exam Planner",True,colour5)
         school_store_xy5=school_store_text5.get_rect(center=left2_rect.center)
-        screen.blit(school_store_text5,(left_rect_state+15+19,school_y+60*4))
+        screen.blit(school_store_text5,(left_rect_state+15+19,school_y+60*3))
         school_store_text6=font2.render("Special Class",True,colour6)
         school_store_xy6=school_store_text6.get_rect(center=left2_rect.center)
-        screen.blit(school_store_text6,(left_rect_state+15+19,school_y+60*5))
+        screen.blit(school_store_text6,(left_rect_state+15+19,school_y+60*4))
 
         bar=pygame.draw.rect(screen,(30,30,30),[left2_rect_state+left_rect_state-7,school_y+60*tem_x-7.5,7,30+7.5],0,-1,3,-1,3,-1)
         screen.blit(profile_main,(left_rect_state+10,32+30))
@@ -567,26 +780,26 @@ while run:
                   h=1
                   c=a=p=e=s=0
                   tem_x=0
-            if s2.collidepoint(event.pos):
-                  c=1
-                  h=a=p=e=s=0
-                  tem_x=1
+            #if s2.collidepoint(event.pos):
+             #     c=1
+              #    h=a=p=e=s=0
+               #   tem_x=1
             if s3.collidepoint(event.pos):
                   a=1
                   h=c=p=e=s=0
-                  tem_x=2
+                  tem_x=1
             if s4.collidepoint(event.pos):
                   p=1
                   h=a=c=e=s=0
-                  tem_x=3
+                  tem_x=2
             if s5.collidepoint(event.pos):
                   e=1
                   h=a=p=c=s=0
-                  tem_x=4
+                  tem_x=3
             if s6.collidepoint(event.pos):
                   s=1
                   h=a=p=e=c=0
-                  tem_x=5
+                  tem_x=4
 
         if h==1:
             state1='on'
@@ -632,9 +845,9 @@ while run:
             elif h==0:
                 state1='off'
                 colour1=(140,140,140)
-            if s2.collidepoint(event.pos):
-                 state2='on'
-                 colour2=(255,255,255)
+            #if s2.collidepoint(event.pos):
+             #    state2='on'
+              #   colour2=(255,255,255)
             elif c==0:
                 state2='off'
                 colour2=(140,140,140)
@@ -663,18 +876,129 @@ while run:
                 state6='off'
                 colour6=(140,140,140)
 
-        #homework======================================================================================================================
         if h==1:
           y_offset = 20
           y_offset += FONT_SIZE + 20
 
           for hw in homework_data["homeworks"]:
-            rect_height = draw_multiline_text_with_rect(screen, hw, (255, y_offset),FONT_SIZE + 5)
+            rect_height = draw_multiline_text_with_rect(screen, hw, (200+left_rect_state, y_offset+rect_y),FONT_SIZE + 5)
             y_offset += rect_height + 10
+            
+          rect_xy=pygame.draw.rect(screen,(50,50,50),text_add_rect,0,10)
+          pygame.draw.rect(screen,add_colour,text_add_rect,2,10)
+          add_text=font6.render("Add Work",True,add_text_colour)
+          add_text_xy=add_text.get_rect(center=rect_xy.center)
+          screen.blit(add_text,add_text_xy)
 
+          if add_text_op==True:
+              input_box=pygame.draw.rect(screen,(50,50,50),[winsize[0]//2-400,winsize[1]//2-300,800,600],0,15)
+              pygame.draw.rect(screen,(255,255,255),[winsize[0]//2-400,winsize[1]//2-300,800,600],3,15)
+              rect_xy1=pygame.draw.rect(screen,(50,50,50),text_add_rect1,0,10)
+              pygame.draw.rect(screen,add_colour1,text_add_rect1,2,10)
+              add_text1=font6.render("Done",True,add_text_colour1)
+              add_text_xy1=add_text1.get_rect(center=rect_xy1.center)
+              screen.blit(add_text1,add_text_xy1)
+              lines1 = render_text()
+              for i, line1 in enumerate(lines1):
+                screen.blit(line1, (input_box.x+10,input_box.y+10+ i * line_height1))
+            
+        if a==1:
+            get_present_by_name(username)
+
+            mouse_pos = pygame.mouse.get_pos()
+            hovered_segment = check_hover(mouse_pos)
+
+            draw_pie_chart(hovered_segment)
+            draw_labels()
+            draw_legend()
+
+            if hovered_segment == "absent":
+              draw_tooltip(mouse_pos, f"Absent: {absent_days} days ({(absent_days / total_days) * 100:.1f}%)")
+            elif hovered_segment == "present":
+              draw_tooltip(mouse_pos, f"Present: {present_days} days ({(present_days / total_days) * 100:.1f}%)")
+                
+        if p==1:
+            get_marks(username)
+            if two==True:
+               current_bar_lengths = [0] * len(marks)
+               two=False
+
+            title= font3.render("Subject-Wise Marks Distribution", True, WHITE)
+            screen.blit(title, (winsize[0] // 2 - title.get_width() // 2+200, 150))
+
+            pygame.draw.line(screen, WHITE, (left_margin-2, top_margin-30), (left_margin-2, top_margin + graph_height+15), 2)  # Y-axis
+            pygame.draw.line(screen, WHITE, (left_margin, top_margin + graph_height+15), (left_margin + graph_width, top_margin + graph_height+15), 2)  # X-axis
+
+            for i in range(0, 101, 10): 
+               x = left_margin + int((i / 100) * graph_width)
+               pygame.draw.line(screen, GRID_COLOR, (x, top_margin), (x, top_margin + graph_height), 1)
+               label = font.render(str(i), True, WHITE)
+               screen.blit(label, (x - label.get_width() // 2, top_margin + graph_height + 15))
+
+            for i, (subject, mark) in enumerate(zip(subjects, marks)):
+               target_length = int((mark / max_mark) * graph_width)
+               if current_bar_lengths[i] < target_length:
+                 current_bar_lengths[i] += animation_speed
+               current_bar_lengths[i] = min(current_bar_lengths[i], target_length)
+  
+               bar_length = current_bar_lengths[i]
+               bar_x = left_margin
+               bar_y = top_margin + i * (bar_width + gap)
+
+               pygame.draw.rect(screen, SHADOW, (bar_x + 5, bar_y + 5, bar_length, bar_width))
+
+               for j in range(bar_length):
+                  gradient_color = (
+                    NEON_BLUE[0] + (NEON_GREEN[0] - NEON_BLUE[0]) * j // bar_length,
+                    NEON_BLUE[1] + (NEON_GREEN[1] - NEON_BLUE[1]) * j // bar_length,
+                    NEON_BLUE[2] + (NEON_GREEN[2] - NEON_BLUE[2]) * j // bar_length,
+                  )
+                  pygame.draw.line(screen, gradient_color, (bar_x + j, bar_y), (bar_x + j, bar_y + bar_width))
+
+               subject_text = font6.render(subject, True, WHITE)
+               screen.blit(subject_text, (bar_x - 140, bar_y + bar_width // 4))
+
+               if bar_x < mouse_pos[0] < bar_x + bar_length and bar_y < mouse_pos[1] < bar_y + bar_width:
+                   tooltip =font.render(f"{subject}: {mark} marks", True, WHITE)
+                   pygame.draw.rect(screen, SHADOW, (mouse_pos[0] + 10, mouse_pos[1] - 25, tooltip.get_width() + 10, tooltip.get_height() + 5))
+                   pygame.draw.rect(screen, NEON_GREEN, (mouse_pos[0] + 10, mouse_pos[1] - 25, tooltip.get_width() + 10, tooltip.get_height() + 5), 2)
+                   screen.blit(tooltip, (mouse_pos[0] + 15, mouse_pos[1] - 23))
+
+               mark_text = font.render(str(mark), True, RED)
+               screen.blit(mark_text, (bar_x + bar_length + 10, bar_y + bar_width // 4))
+
+        if e==1:
+            screen.blit(test_main,(430,80))
+
+        if s==1:
+          y_offset1 = 20
+          y_offset1 += FONT_SIZE + 20
+
+          for hw in class_data["class"]:
+            rect_height = draw_multiline_text_with_rect(screen, hw, (200+left_rect_state, y_offset1+rect_y1),FONT_SIZE + 5)
+            y_offset1 += rect_height + 10
+            
+          rect_xy=pygame.draw.rect(screen,(50,50,50),text_add_rect,0,10)
+          pygame.draw.rect(screen,add_colour,text_add_rect,2,10)
+          add_text=font6.render("Add Work",True,add_text_colour)
+          add_text_xy=add_text.get_rect(center=rect_xy.center)
+          screen.blit(add_text,add_text_xy)
+
+          if add_text_op==True:
+              input_box=pygame.draw.rect(screen,(50,50,50),[winsize[0]//2-400,winsize[1]//2-300,800,600],0,15)
+              pygame.draw.rect(screen,(255,255,255),[winsize[0]//2-400,winsize[1]//2-300,800,600],3,15)
+              rect_xy1=pygame.draw.rect(screen,(50,50,50),text_add_rect1,0,10)
+              pygame.draw.rect(screen,add_colour1,text_add_rect1,2,10)
+              add_text1=font6.render("Done",True,add_text_colour1)
+              add_text_xy1=add_text1.get_rect(center=rect_xy1.center)
+              screen.blit(add_text1,add_text_xy1)
+              lines1 = render_text()
+              for i, line1 in enumerate(lines1):
+                screen.blit(line1, (input_box.x+10,input_box.y+10+ i * line_height1))
+            
 
       if text=="Bot2":
-        cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,32,10,winsize[1]])
+        cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,30,10,winsize[1]])
 
         box=pygame.Rect(300,32+10,winsize[0]-200-105,winsize[1]-52)
         box_outter=pygame.draw.rect(screen,box_outter_colour,box,2,10)
@@ -720,6 +1044,37 @@ while run:
             if solve.collidepoint(event.pos):
                 #solve 
                 None
+
+
+      if text=="News":
+          cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,30,winsize[0],winsize[1]])
+
+          y_offset2 = 20
+          y_offset2 += FONT_SIZE + 20
+
+          for hw in news_data["news"]:
+            rect_height = draw_multiline_text_with_rect(screen, hw, (200+left_rect_state, y_offset2+rect_y2),FONT_SIZE + 5)
+            y_offset2 += rect_height + 10
+            
+          rect_xy=pygame.draw.rect(screen,(50,50,50),text_add_rect,0,10)
+          pygame.draw.rect(screen,add_colour,text_add_rect,2,10)
+          add_text=font6.render("Add Work",True,add_text_colour)
+          add_text_xy=add_text.get_rect(center=rect_xy.center)
+          screen.blit(add_text,add_text_xy)
+
+          if add_text_op==True:
+              input_box=pygame.draw.rect(screen,(50,50,50),[winsize[0]//2-400,winsize[1]//2-300,800,600],0,15)
+              pygame.draw.rect(screen,(255,255,255),[winsize[0]//2-400,winsize[1]//2-300,800,600],3,15)
+              rect_xy1=pygame.draw.rect(screen,(50,50,50),text_add_rect1,0,10)
+              pygame.draw.rect(screen,add_colour1,text_add_rect1,2,10)
+              add_text1=font6.render("Done",True,add_text_colour1)
+              add_text_xy1=add_text1.get_rect(center=rect_xy1.center)
+              screen.blit(add_text1,add_text_xy1)
+              lines1 = render_text()
+              for i, line1 in enumerate(lines1):
+                screen.blit(line1, (input_box.x+10,input_box.y+10+ i * line_height1))
+
+      top_rect=pygame.draw.rect(screen,(70,70,70),[0,0,winsize[0],30])
 
     #Change button colour
       if sss==1:
