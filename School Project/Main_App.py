@@ -1,9 +1,39 @@
 import pygame
+import pygame as pg
+import os.path
+import google.generativeai as genai
+import random
+import webbrowser
+import sys
 from pygame.locals import *
 import time
 import json
 import os
 import math
+from PIL import Image, ImageOps
+import cv2
+import numpy as np
+import tensorflow as tf
+
+genai.configure(api_key="AIzaSyBC2tKHZFF3y_8YxhxPIp51KgT8j_Z-Ayg")
+
+model = tf.keras.models.load_model('Model.h5')
+
+generation_config = {
+    "temperature": 1.5,
+    "top_p": 1,
+    "top_k": 64,
+    "max_output_tokens": 8192,
+    "response_mime_type": "text/plain",
+}
+
+'''model = genai.GenerativeModel(
+    model_name="gemini-1.5-pro",
+    generation_config=generation_config,
+    system_instruction="you are the school AI for Vidhya Sagar Global School, Chengalpattu. Your name is VSAi...",
+)'''
+
+history = []
 
 pygame.init()
 
@@ -22,6 +52,7 @@ font2=pygame.font.Font('Assets/font.ttf',20)
 font3=pygame.font.Font('Assets/font2.ttf',35)
 font4=pygame.font.Font('Assets/font2.ttf',25)
 font5=pygame.font.Font('Assets/font2.ttf',40)
+font7=pygame.font.Font('Assets/font2.ttf',100)
 
 #Animations
 def option_state_animation_push():
@@ -177,10 +208,105 @@ cv_colour=(255,255,255)
 def draw_line(screen,start,end,width):
     pygame.draw.line(screen,cv_colour,start,end,width)
 
+def process_image0(input_path, output_path, new_size):
+    img = Image.open(input_path)
+    
+    img_gray = img.convert("L")
+    
+    img_inverted = ImageOps.invert(img_gray)
+    
+    img_binary = img_inverted.point(lambda x: 255 if x < 128 else 0, mode="1")
+    
+    img_resized = img_binary.resize(new_size, Image.Resampling.LANCZOS)
+    
+    img_resized.save(output_path)
+
+def process_image1(input_path1, output_path1, new_size):
+    img1 = Image.open(input_path1)
+    
+    img_inverted1 = ImageOps.invert(img1.convert("RGB"))
+    
+    img_resized1 = img_inverted1.resize(new_size, Image.Resampling.LANCZOS)
+    
+    img_resized1.save(output_path1)
+
+input_image_path = "saved_image/cv_image.png" 
+output_image_path = "saved_image/processed_image.png"   
+input_image_path1 = "saved_image/processed_image.png" 
+output_image_path1 = "saved_image/processed1_image.png" 
+new_dimensions = (100, 50)
+
+def testing(img):
+    img = cv2.bitwise_not(img)
+    img = cv2.resize(img, (28, 28))  # Resize to match the model input size
+    img = img.reshape(1, 28, 28, 1).astype('float32') / 255.0
+    return model.predict(img)
+
+def num_to_sym(x):
+    symbols = {10: '+', 11: '-', 12: '*', 13: '/', 14: '(', 15: ')', 16: '.'}
+    return symbols.get(x, str(x))
+
+def solve_exp(preds):
+    expression = "".join([num_to_sym(ind) for ind, acc in preds])
+    try:
+        result = eval(expression)
+        return f"{expression} = {result:.4f}"
+    except Exception:
+        return "Invalid expression"
+
+def make_square(image):
+    h, w = image.shape[:2]
+    if h == w:
+        return image  # Already square
+    size = max(h, w)
+    delta_w = size - w
+    delta_h = size - h
+    top, bottom = delta_h // 2, delta_h - (delta_h // 2)
+    left, right = delta_w // 2, delta_w - (delta_w // 2)
+    color = 255  # Padding color (white)
+    return cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)
+
+def process_image(image_path):
+    img = cv2.imread(image_path)
+    if img is None:
+        return "Error: Unable to read image."
+    
+    # Preprocess the image
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    bw = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)[1]
+    bw = cv2.bitwise_not(bw)
+
+    # Find contours and sort by position
+    contours, _ = cv2.findContours(bw, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = sorted(contours, key=lambda x: cv2.boundingRect(x)[0])
+
+    preds = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        cropped = gray[y:y + h, x:x + w]
+
+        # Make the cropped region square
+        cropped = make_square(cropped)
+
+        # Resize to 28x28
+        cropped = cv2.resize(cropped, (28, 28))
+
+        # Predict
+        pred = testing(cropped)
+        ind = np.argmax(pred[0])
+        acc = pred[0][ind] * 100
+        preds.append((ind, acc))
+    
+    return solve_exp(preds)
+
+image_path="saved_image/processed1_image.png"
+
 def save_image():
     timestamp=int(time.time())
     filename=f"saved_image/cv_image.png"
     pygame.image.save(subsurface,filename)
+    process_image0(input_image_path, output_image_path, new_dimensions)
+    process_image1(input_image_path1, output_image_path1, new_dimensions)
     return filename
 
 #Json
@@ -398,6 +524,69 @@ test_cut=1.1
 test_newsize=(test_size[0]//test_cut,test_size[1]//test_cut)
 test_main=pygame.transform.smoothscale(test,test_newsize)
 
+#ai
+font0 = pygame.font.Font(None, 28)  # Slightly larger font for spaciousness
+
+# UI Components
+input_box = pygame.Rect(300, winsize[1] - 100, winsize[0] - 370, 40)
+scrollable_area = pygame.Rect(300,60,winsize[0] - 370,winsize[1]-200)
+
+chat_lines = [("VSAi: Hi, I'm your personal AI assistant, how can I help you?", False)]  # Initial greeting
+user_input = ""
+scroll_offset = 0
+SPACING = 20 
+SCROLL_SPEED = 20
+
+def wrap_text(text, font0, max_width):
+    lines = []
+    words = text.split(" ")
+    line = ""
+    for word in words:
+        test_line = f"{line} {word}".strip()
+        if font0.size(test_line)[0] > max_width:
+            lines.append(line.strip())
+            line = word
+        else:
+            line = test_line
+    lines.append(line.strip())
+    return lines
+
+
+def render_chat(surface, chat_lines, scroll_offset):
+    y = scrollable_area.top - scroll_offset
+    for line, is_user in chat_lines:
+        color = (200,200,200) if is_user else WHITE
+        for wrapped_line in wrap_text(line, font0, scrollable_area.width):
+            if y + font0.get_height() > scrollable_area.top:
+                text_surface = font0.render(wrapped_line, True, color)
+                surface.blit(text_surface, (scrollable_area.left+10, y+10))
+            y += font0.get_height()
+        y += SPACING
+        if y > scrollable_area.bottom:
+            break
+
+
+def chatbot_response(user_input):
+    chat_session = model.start_chat(history=history)
+    response = chat_session.send_message(user_input)
+    history.append({"role": "user", "parts": [user_input]})
+    history.append({"role": "model", "parts": [response.text]})
+    return response.text
+
+ai0=pygame.image.load('Assets/ai.png')
+ai0_size=ai0.get_size()
+ai0_cut=2.01
+ai0_newsize=(ai0_size[0]//ai0_cut,ai0_size[1]//ai0_cut)
+ai0_main=pygame.transform.smoothscale(ai0,ai0_newsize)
+
+news0=pygame.image.load('Assets/news.png')
+news0_size=news0.get_size()
+news0_cut=1.3
+news0_newsize=(news0_size[0]//news0_cut,news0_size[1]//news0_cut)
+news0_main=pygame.transform.smoothscale(news0,news0_newsize)
+
+button_rect_V=pygame.Rect(0,winsize[1]-70,50,50)
+
 #Colours for button
 coloura=(70,70,70)
 colourb=(70,70,70)
@@ -417,6 +606,10 @@ solve_border_colour=(140,140,140)
 solve_text_colour=(140,140,140)
 box_colour=(50,50,50)
 box_outter_colour=(140,140,140)
+clear_colour=(70,70,70)
+clear_border_colour=(140,140,140)
+clear_text_colour=(140,140,140)
+ans_border_colour=(140,140,140)
 
 login_name_colour=(150,150,150)
 login_password_colour=(150,150,150)
@@ -455,9 +648,10 @@ tem_x,x=0,0
 solve_on=False
 drawing=False
 last_pos=None
-radius=3
+radius=15
 username = ""
 password = ""
+result="="
 username_active = False
 password_active = False
 dis_name=False
@@ -465,6 +659,8 @@ dis_pass=False
 i_pass=False
 FONT_SIZE=20
 add_text_op=False
+recover=1
+yes=1
 two=True
 rect_y,rect_y1,rect_y2=0,0,0
 rect_speed=30
@@ -614,27 +810,28 @@ while run:
             elif button_rect4.collidepoint(event.pos) and option_state==1:
                 _text2_colour=(255,255,255)
                 option_state=0
-            if text_rect.collidepoint(event.pos):
+            if button_rect_V.collidepoint(event.pos):
+                webbrowser.open("https://cbse.vidhyasagar.in")
+            '''if text_rect.collidepoint(event.pos):
                   add_text_op=True
             if text_rect1.collidepoint(event.pos):
                   add_text_op=False
                   homework_data["homeworks"].append(add_text_1)
-                  save_homework_data()
-            if event.button == 5 and h==1:  # Scroll up
+                  save_homework_data()'''
+            if event.button == 5 and h==1 and text=="School":  # Scroll up
                   rect_y -= rect_speed
-            elif event.button == 4 and h==1:  # Scroll down
+            elif event.button == 4 and h==1 and text=="School":  # Scroll down
                   rect_y += rect_speed
 
-            if event.button == 5 and s==1:  # Scroll up
+            if event.button == 5 and s==1 and text=="School":  # Scroll up
                   rect_y1 -= rect_speed
-            elif event.button == 4 and s==1:  # Scroll down
+            elif event.button == 4 and s==1 and text=="School":  # Scroll down
                   rect_y1 += rect_speed
 
             if event.button == 5 and text=="News":  # Scroll up
                   rect_y2 -= rect_speed
             elif event.button == 4 and text=="News":  # Scroll down
                   rect_y2 += rect_speed
-            
             
         if event.type==pygame.MOUSEBUTTONDOWN:
             if button_recta.collidepoint(event.pos):
@@ -722,6 +919,25 @@ while run:
             else:
                 add_text_1 += event.unicode
       
+      
+        if event.type == pygame.KEYDOWN and text=="VSAI":
+            if event.key == pygame.K_RETURN:
+                if user_input.strip():
+                    chat_lines.append((f"You: {user_input}", True))
+                    bot_response = chatbot_response(user_input)
+                    chat_lines.append((f"VSAi: {bot_response}", False))
+                    user_input = ""
+                    scroll_offset = max(0, len(chat_lines) * (font.get_height() + SPACING) - scrollable_area.height)
+            elif event.key == pygame.K_BACKSPACE:
+                user_input = user_input[:-1]
+            else:
+                user_input += event.unicode
+        elif event.type == pygame.MOUSEBUTTONDOWN and text=="VSAI":
+            if event.button == 5:  # Scroll up
+                scroll_offset += max(scroll_offset - 20, 0)
+            elif event.button == 4:  # Scroll down
+                scroll_offset += min(scroll_offset + 20, len(chat_lines) * (font.get_height() + SPACING) - scrollable_area.height)
+      
       #Animation
       if option_state==0 and left_rect_state<=100:
         option_state_animation_push()
@@ -737,6 +953,7 @@ while run:
       #Option in options
       if text=="School":
         school_y=252
+        recover=1
 
         cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,30,winsize[0],winsize[1]])
 
@@ -884,24 +1101,6 @@ while run:
             rect_height = draw_multiline_text_with_rect(screen, hw, (200+left_rect_state, y_offset+rect_y),FONT_SIZE + 5)
             y_offset += rect_height + 10
             
-          rect_xy=pygame.draw.rect(screen,(50,50,50),text_add_rect,0,10)
-          pygame.draw.rect(screen,add_colour,text_add_rect,2,10)
-          add_text=font6.render("Add Work",True,add_text_colour)
-          add_text_xy=add_text.get_rect(center=rect_xy.center)
-          screen.blit(add_text,add_text_xy)
-
-          if add_text_op==True:
-              input_box=pygame.draw.rect(screen,(50,50,50),[winsize[0]//2-400,winsize[1]//2-300,800,600],0,15)
-              pygame.draw.rect(screen,(255,255,255),[winsize[0]//2-400,winsize[1]//2-300,800,600],3,15)
-              rect_xy1=pygame.draw.rect(screen,(50,50,50),text_add_rect1,0,10)
-              pygame.draw.rect(screen,add_colour1,text_add_rect1,2,10)
-              add_text1=font6.render("Done",True,add_text_colour1)
-              add_text_xy1=add_text1.get_rect(center=rect_xy1.center)
-              screen.blit(add_text1,add_text_xy1)
-              lines1 = render_text()
-              for i, line1 in enumerate(lines1):
-                screen.blit(line1, (input_box.x+10,input_box.y+10+ i * line_height1))
-            
         if a==1:
             get_present_by_name(username)
 
@@ -968,7 +1167,7 @@ while run:
                screen.blit(mark_text, (bar_x + bar_length + 10, bar_y + bar_width // 4))
 
         if e==1:
-            screen.blit(test_main,(430,80))
+            screen.blit(test_main,(400,150))
 
         if s==1:
           y_offset1 = 20
@@ -977,30 +1176,14 @@ while run:
           for hw in class_data["class"]:
             rect_height = draw_multiline_text_with_rect(screen, hw, (200+left_rect_state, y_offset1+rect_y1),FONT_SIZE + 5)
             y_offset1 += rect_height + 10
-            
-          rect_xy=pygame.draw.rect(screen,(50,50,50),text_add_rect,0,10)
-          pygame.draw.rect(screen,add_colour,text_add_rect,2,10)
-          add_text=font6.render("Add Work",True,add_text_colour)
-          add_text_xy=add_text.get_rect(center=rect_xy.center)
-          screen.blit(add_text,add_text_xy)
 
-          if add_text_op==True:
-              input_box=pygame.draw.rect(screen,(50,50,50),[winsize[0]//2-400,winsize[1]//2-300,800,600],0,15)
-              pygame.draw.rect(screen,(255,255,255),[winsize[0]//2-400,winsize[1]//2-300,800,600],3,15)
-              rect_xy1=pygame.draw.rect(screen,(50,50,50),text_add_rect1,0,10)
-              pygame.draw.rect(screen,add_colour1,text_add_rect1,2,10)
-              add_text1=font6.render("Done",True,add_text_colour1)
-              add_text_xy1=add_text1.get_rect(center=rect_xy1.center)
-              screen.blit(add_text1,add_text_xy1)
-              lines1 = render_text()
-              for i, line1 in enumerate(lines1):
-                screen.blit(line1, (input_box.x+10,input_box.y+10+ i * line_height1))
-            
-
-      if text=="Bot2":
-        cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,30,10,winsize[1]])
+      if text=="ScribeX":
+        if recover==1:
+           pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,30,winsize[0],winsize[1]])
+           recover=0
 
         box=pygame.Rect(300,32+10,winsize[0]-200-105,winsize[1]-52)
+        box2=pygame.Rect(300+15,32+10+15,winsize[0]-200-105-30,winsize[1]-52-30)
         box_outter=pygame.draw.rect(screen,box_outter_colour,box,2,10)
 
         subsurface = screen.subsurface(box)
@@ -1011,24 +1194,40 @@ while run:
         solve_text_xy=solve_text.get_rect(center=solve.center)
         screen.blit(solve_text,(solve_text_xy[0],solve_text_xy[1]-30))
 
+        clear=pygame.draw.rect(screen,clear_colour,[left_rect_state+10,32+200,left2_rect_state-20,left2_rect_state-100],0,10)
+        clear_border=pygame.draw.rect(screen,clear_border_colour,[left_rect_state+10,32+200,left2_rect_state-20,left2_rect_state-100],1,10)
+        clear_text=font3.render("Clear",True,clear_text_colour)
+        clear_text_xy=clear_text.get_rect(center=clear.center)
+        screen.blit(clear_text,(clear_text_xy[0],clear_text_xy[1]))
+
+        ans=pygame.draw.rect(screen,(70,70,70),[left_rect_state+10,32+300,left2_rect_state-20,left2_rect_state-42],0,10)
+        ans_border=pygame.draw.rect(screen,ans_border_colour,[left_rect_state+10,32+300,left2_rect_state-20,left2_rect_state-42],1,10)
+
+
         if solve_on:
            screen.blit(main_solve1,(solve_text_xy[0]+18,solve_text_xy[1]+15))
+           yes=1
            save_image()
         else:
            screen.blit(main_solve,(solve_text_xy[0]+18,solve_text_xy[1]+15))
 
+        mouse_pos = pygame.mouse.get_pos()
         if event.type==pygame.MOUSEBUTTONDOWN:
-                if box.collidepoint(event.pos):
+                if box2.collidepoint(event.pos):
                     drawing=True
                     last_pos=event.pos 
         elif event.type==pygame.MOUSEBUTTONUP:
                     drawing=False
-        elif event.type==pygame.MOUSEMOTION and drawing:
-                    current_pos=pygame.mouse.get_pos()
-                    if box.collidepoint(current_pos):
-                      if last_pos and box.collidepoint(last_pos):
-                       pygame.draw.line(screen,cv_colour,last_pos,current_pos,radius)
-                      last_pos=current_pos
+        elif event.type==pygame.MOUSEMOTION and drawing and box2.collidepoint(mouse_pos):
+            current_pos = pygame.mouse.get_pos()
+
+            pygame.draw.circle(screen,(255,255,255), current_pos, radius)
+
+            if last_pos:
+                pygame.draw.aaline(screen, (255,255,255), last_pos, current_pos)
+
+            last_pos = current_pos
+
 
         if event.type==pygame.MOUSEMOTION:
             if solve.collidepoint(event.pos):
@@ -1040,13 +1239,37 @@ while run:
                 solve_border_colour=(140,140,140)
                 solve_on=False
 
-        if event.type==pygame.MOUSEBUTTONUP:
-            if solve.collidepoint(event.pos):
-                #solve 
-                None
+            if clear.collidepoint(event.pos):
+                clear_border_colour=(255,255,255)
+                clear_text_colour=(255,255,255)
+            else:
+                clear_border_colour=(140,140,140)
+                clear_text_colour=(140,140,140)
 
+            if ans.collidepoint(event.pos):
+                ans_border_colour=(255,255,255)
+            else:
+                ans_border_colour=(140,140,140)
+
+        if event.type==pygame.MOUSEBUTTONDOWN:
+            if clear.collidepoint(event.pos):
+                recover=1
+
+        if event.type==pygame.MOUSEBUTTONUP and yes==1:
+            if solve.collidepoint(event.pos):
+                result = process_image(image_path)
+                print("Result:", result)
+                yes=0
+
+        parts=result.split("=")
+        ans_text_xy=solve_text.get_rect(center=ans.center)
+        text_1=font4.render(parts[0],True,(255,255,255))
+        text_2=font4.render("="+parts[1],True,(255,255,255))
+        screen.blit(text_1,(ans_text_xy[0],ans_text_xy[1]-30))
+        screen.blit(text_2,(ans_text_xy[0],ans_text_xy[1]+10))
 
       if text=="News":
+          recover=1
           cover_rect=pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,30,winsize[0],winsize[1]])
 
           y_offset2 = 20
@@ -1056,26 +1279,26 @@ while run:
             rect_height = draw_multiline_text_with_rect(screen, hw, (200+left_rect_state, y_offset2+rect_y2),FONT_SIZE + 5)
             y_offset2 += rect_height + 10
             
-          rect_xy=pygame.draw.rect(screen,(50,50,50),text_add_rect,0,10)
-          pygame.draw.rect(screen,add_colour,text_add_rect,2,10)
-          add_text=font6.render("Add Work",True,add_text_colour)
-          add_text_xy=add_text.get_rect(center=rect_xy.center)
-          screen.blit(add_text,add_text_xy)
+          screen.blit(news0_main,(left_rect_state+20,winsize[1]//2-200))
 
-          if add_text_op==True:
-              input_box=pygame.draw.rect(screen,(50,50,50),[winsize[0]//2-400,winsize[1]//2-300,800,600],0,15)
-              pygame.draw.rect(screen,(255,255,255),[winsize[0]//2-400,winsize[1]//2-300,800,600],3,15)
-              rect_xy1=pygame.draw.rect(screen,(50,50,50),text_add_rect1,0,10)
-              pygame.draw.rect(screen,add_colour1,text_add_rect1,2,10)
-              add_text1=font6.render("Done",True,add_text_colour1)
-              add_text_xy1=add_text1.get_rect(center=rect_xy1.center)
-              screen.blit(add_text1,add_text_xy1)
-              lines1 = render_text()
-              for i, line1 in enumerate(lines1):
-                screen.blit(line1, (input_box.x+10,input_box.y+10+ i * line_height1))
+      if text=="VSAI":
+          recover=1
+          pygame.draw.rect(screen,(30,30,30),[left_rect_state+left2_rect_state,30,winsize[0],winsize[1]])
+          
+          pygame.draw.rect(screen,(50,50,50),scrollable_area,0,15)
+          pygame.draw.rect(screen,(250,250,250),scrollable_area,2,15)
 
+          render_chat(screen, chat_lines, scroll_offset)
+
+          pygame.draw.rect(screen, (70,70,70), input_box, border_radius=15)
+          pygame.draw.rect(screen, (250,250,250), input_box,2,15)
+          text_surface = font.render(user_input, True, (255,255,255))
+          screen.blit(text_surface, (input_box.x + 10, input_box.y + 8))
+          
+          screen.blit(ai0_main,(left_rect_state,winsize[1]//2-ai0_newsize[1]//2-20))
+          
       top_rect=pygame.draw.rect(screen,(70,70,70),[0,0,winsize[0],30])
-
+          
     #Change button colour
       if sss==1:
         coloura=(45,45,45)
@@ -1089,7 +1312,7 @@ while run:
         colourb=(45,45,45)
         ais=1
         squarey=82
-        text="Bot1"
+        text="VSAI"
       elif aiss==0:
         colourb=(70,70,70)
         ais=0
@@ -1097,7 +1320,7 @@ while run:
         ps=1
         colourc=(45,45,45)
         squarey=132
-        text="Bot2"
+        text="ScribeX"
       elif pss==0:
         ps=0
         colourc=(70,70,70)
@@ -1105,7 +1328,7 @@ while run:
         gs=1
         colourd=(45,45,45)
         squarey=182
-        text="Games"
+        text="News"
       elif gss==0:
         gs=0
         colourd=(70,70,70)
@@ -1113,7 +1336,7 @@ while run:
         ns=1
         coloure=(45,45,45)
         squarey=237
-        text="News"
+        text="N"
       elif nss==0:
         ns=0
         coloure=(70,70,70)
@@ -1156,6 +1379,14 @@ while run:
       screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-20))
       screen.blit(_text2,(_text2_xy[0],_text2_xy[1]-25))
     
+      v_text=font5.render("V",True,(255,255,255))
+      v_text_xy=v_text.get_rect(center=button_rect_V.center)
+      screen.blit(v_text,v_text_xy)
+      #pygame.draw.rect(screen,(255,0,0),button_rect_V)
+
+      user_text=font6.render("Hello;"+ username,True,(255,255,255))
+      screen.blit(user_text,(55,7))
+    
       #=========================================[For options]
       #School
       if school_state==0 and ss==0:
@@ -1174,14 +1405,14 @@ while run:
         screen.blit(pen_main1,pen_xy)
       #Games
       if game_state==0 and gs==0:
-        screen.blit(game_main,(game_xy[0],game_xy[1]+5))
+        screen.blit(news_main,(game_xy[0],game_xy[1]+5+5))
       elif game_state==1 or gs==1:
-        screen.blit(game_main1,game_xy)
-      #news
+        screen.blit(news_main1,(game_xy[0],game_xy[1]+5))
+      """#news
       if news_state==0 and ns==0:
         screen.blit(news_main,(news_xy[0],news_xy[1]+5))
       elif news_state==1 or ns==1:
-        screen.blit(news_main1,(news_xy[0],news_xy[1]))
+        screen.blit(news_main1,(news_xy[0],news_xy[1]))"""
     
       pygame.display.update()
 pygame.quit()
